@@ -25,4 +25,5 @@ class MainViewModel : ViewModel() {
     fun onGenderSelected(g: Gender) {
         gender = g
     }
+
 }
