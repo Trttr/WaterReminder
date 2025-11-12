@@ -126,17 +126,6 @@ fun WelcomePage(
                     trailingIcon = { Text("ml") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
-
-
-
-
-
-
-
-
-
-
-
             }
 
             Button(

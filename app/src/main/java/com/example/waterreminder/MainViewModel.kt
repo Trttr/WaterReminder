@@ -37,10 +37,10 @@ class MainViewModel : ViewModel() {
     }
 
     fun updateDefaultDrinkingGoal():Int{
-        return when(gender){
-            Gender.Male -> 3700
-            Gender.Female -> 2700
-            null -> 0
+        return when{
+            gender == Gender.Male && name.isNotBlank() -> 3700
+            gender == Gender.Female && name.isNotBlank() -> 2700
+            else -> 0
         }
     }
 
