@@ -1,9 +1,5 @@
 package com.example.waterreminder.ui
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,24 +7,22 @@ import kotlinx.coroutines.flow.asStateFlow
 
 enum class Gender { Male, Female }
 
-data class WelcomeUiState(
+data class UiState(
     val name: String = "",
     val gender: Gender? = null,
-    val drinkingGoals: Int = 0
+    val drinkingGoals: Int = 0,
+    val drinkingCount: Int = 0,
 ) {
     val isNextEnabled: Boolean
         get() = name.isNotBlank() && gender != null && drinkingGoals > 0
 }
 
-data class DashBoardUiState(
-    val drinkingCount: Int = 0,
-)
 
 
-class WelcomePageViewModel : ViewModel() {
+class ViewModel : ViewModel() {
 
-    private val _uiState = MutableStateFlow(WelcomeUiState())
-    val uiState: StateFlow<WelcomeUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(UiState())
+    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     fun onNameChange(newName: String) {
         _uiState.value = _uiState.value.copy(name = newName)
@@ -73,12 +67,10 @@ class WelcomePageViewModel : ViewModel() {
             else -> "\uD83D\uDCAA You are doing great!"
         }
     }
+
+    fun getPercentage(): Float{
+        return _uiState.value.drinkingCount.toFloat() / _uiState.value.drinkingGoals.toFloat().coerceIn(0f,1f)
+    }
 }
 
-class DashBoardViewModel : ViewModel() {
-    private val _uiState = MutableStateFlow(DashBoardUiState())
-    val uiState: StateFlow<DashBoardUiState> = _uiState.asStateFlow()
-
-
-}
 

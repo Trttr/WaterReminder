@@ -33,15 +33,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.compose.AppTheme
 import com.example.waterreminder.ui.Gender
-import com.example.waterreminder.ui.WelcomePageViewModel
+import com.example.waterreminder.ui.ViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WelcomePage(
-    welcomePageViewModel: WelcomePageViewModel = viewModel(),
+    viewModel: ViewModel = viewModel(),
     onNext: () -> Unit
 ) {
-    val welcomeUiState by welcomePageViewModel.uiState.collectAsState()
+    val welcomeUiState by viewModel.uiState.collectAsState()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -80,7 +80,7 @@ fun WelcomePage(
                 Spacer(Modifier.height(16.dp))
                 OutlinedTextField(
                     value = welcomeUiState.name,
-                    onValueChange = { welcomePageViewModel.onNameChange(it) },
+                    onValueChange = { viewModel.onNameChange(it) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -101,13 +101,13 @@ fun WelcomePage(
                     GenderOption(
                         label = "Male",
                         selected = welcomeUiState.gender == Gender.Male,
-                        onClick = { welcomePageViewModel.onGenderSelected(Gender.Male) },
+                        onClick = { viewModel.onGenderSelected(Gender.Male) },
                         modifier = Modifier.weight(1f)
                     )
                     GenderOption(
                         label = "Female",
                         selected = welcomeUiState.gender == Gender.Female,
-                        onClick = { welcomePageViewModel.onGenderSelected(Gender.Female) },
+                        onClick = { viewModel.onGenderSelected(Gender.Female) },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -123,7 +123,7 @@ fun WelcomePage(
                     value = welcomeUiState.drinkingGoals.toString(),
                     onValueChange = { it ->
                         val value = it.toIntOrNull() ?: 0
-                        welcomePageViewModel.onDrinkingGoalsChange(value)
+                        viewModel.onDrinkingGoalsChange(value)
                     },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -134,7 +134,7 @@ fun WelcomePage(
                 Spacer(Modifier.height(5.dp))
                 if (welcomeUiState.isNextEnabled){
                     Text(
-                        text = welcomePageViewModel.checkDrinkingStatus(),
+                        text = viewModel.checkDrinkingStatus(),
                         style = MaterialTheme.typography.titleSmall
                     )
                 }
@@ -183,7 +183,7 @@ private fun GenderOption(
 @Preview(showBackground = true)
 @Composable
 fun PreviewWelcomePage() {
-    val fakeVm = WelcomePageViewModel().apply {
+    val fakeVm = ViewModel().apply {
         onNameChange("Donald")
         onGenderSelected(Gender.Male)
         onDrinkingGoalsChange(2800)
@@ -191,7 +191,7 @@ fun PreviewWelcomePage() {
 
     AppTheme {
         WelcomePage(
-            welcomePageViewModel = fakeVm,
+            viewModel = fakeVm,
             onNext = {}
         )
     }

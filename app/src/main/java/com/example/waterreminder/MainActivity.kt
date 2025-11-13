@@ -10,8 +10,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.compose.AppTheme
-import com.example.waterreminder.ui.DashBoardViewModel
-import com.example.waterreminder.ui.WelcomePageViewModel
+import com.example.waterreminder.ui.ViewModel
 
 
 class MainActivity : ComponentActivity() {
@@ -29,8 +28,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AppNav() {
     val navController = rememberNavController()
-    val welcomePageViewModel: WelcomePageViewModel = viewModel()
-    val dashBoardViewModel: DashBoardViewModel = viewModel()
+    val viewModel: ViewModel = viewModel()
 
 
     NavHost(
@@ -39,7 +37,7 @@ private fun AppNav() {
     ) {
         composable(NavRoutes.Welcome) {
             WelcomePage(
-                welcomePageViewModel = welcomePageViewModel,
+                viewModel = viewModel,
                 onNext = {
                     navController.navigate(NavRoutes.Dashboard)
                 }
@@ -48,8 +46,7 @@ private fun AppNav() {
 
         composable(NavRoutes.Dashboard) {
             DashBoard(
-                welcomePageViewModel = welcomePageViewModel,
-                dashBoardViewModel = dashBoardViewModel,
+                viewModel = viewModel,
                 onNext = {
                     navController.navigate(NavRoutes.Dashboard)
                 }
