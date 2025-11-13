@@ -23,21 +23,25 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.compose.AppTheme
 import com.example.waterreminder.ui.Gender
-import com.example.waterreminder.ui.MainViewModel
+import com.example.waterreminder.ui.WelcomePageViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WelcomePage(
-    vm: MainViewModel,
+    welcomePageViewModel: WelcomePageViewModel = viewModel(),
     onNext: () -> Unit
 ) {
+    val welcomeUiState by welcomePageViewModel.uiState.collectAsState()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -75,8 +79,8 @@ fun WelcomePage(
                 )
                 Spacer(Modifier.height(16.dp))
                 OutlinedTextField(
-                    value = vm.name,
-                    onValueChange = { vm.onNameChange(it) },
+                    value = welcomeUiState.name,
+                    onValueChange = { welcomePageViewModel.onNameChange(it) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -96,14 +100,14 @@ fun WelcomePage(
                 ) {
                     GenderOption(
                         label = "Male",
-                        selected = vm.gender == Gender.Male,
-                        onClick = { vm.onGenderSelected(Gender.Male) },
+                        selected = welcomeUiState.gender == Gender.Male,
+                        onClick = { welcomePageViewModel.onGenderSelected(Gender.Male) },
                         modifier = Modifier.weight(1f)
                     )
                     GenderOption(
                         label = "Female",
-                        selected = vm.gender == Gender.Female,
-                        onClick = { vm.onGenderSelected(Gender.Female) },
+                        selected = welcomeUiState.gender == Gender.Female,
+                        onClick = { welcomePageViewModel.onGenderSelected(Gender.Female) },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -116,27 +120,36 @@ fun WelcomePage(
                 )
                 Spacer(Modifier.height(16.dp))
                 OutlinedTextField(
-                    value = vm.drinkingGoals.toString(),
+                    value = welcomeUiState.drinkingGoals.toString(),
                     onValueChange = { it ->
                         val value = it.toIntOrNull() ?: 0
-                        vm.onDrinkingGoalsChange(value)
+                        welcomePageViewModel.onDrinkingGoalsChange(value)
                     },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     trailingIcon = { Text("ml") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
+
+                Spacer(Modifier.height(5.dp))
+                if (welcomeUiState.isNextEnabled){
+                    Text(
+                        text = welcomePageViewModel.checkDrinkingStatus(),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                }
             }
 
             Button(
                 onClick = onNext,
-                enabled = vm.isNextEnabled,
+                enabled = welcomeUiState.isNextEnabled,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
             ) {
                 Text("Next")
             }
+
         }
     }
 }
@@ -170,7 +183,7 @@ private fun GenderOption(
 @Preview(showBackground = true)
 @Composable
 fun PreviewWelcomePage() {
-    val fakeVm = MainViewModel().apply {
+    val fakeVm = WelcomePageViewModel().apply {
         onNameChange("Donald")
         onGenderSelected(Gender.Male)
         onDrinkingGoalsChange(2800)
@@ -178,7 +191,7 @@ fun PreviewWelcomePage() {
 
     AppTheme {
         WelcomePage(
-            vm = fakeVm,
+            welcomePageViewModel = fakeVm,
             onNext = {}
         )
     }
