@@ -78,6 +78,15 @@ private fun AppNav() {
             )
         }
 
+        composable(NavRoutes.History){
+            HistoryPage(
+                viewModel = viewModel,
+                onBack = {
+                    navController.navigate(NavRoutes.Dashboard)
+                }
+            )
+        }
+
 
 
     }

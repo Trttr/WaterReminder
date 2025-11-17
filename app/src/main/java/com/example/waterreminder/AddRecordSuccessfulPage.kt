@@ -2,7 +2,6 @@ package com.example.waterreminder
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +10,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -47,40 +49,43 @@ fun AddRecordSuccessfulPage(
                     titleContentColor = MaterialTheme.colorScheme.primary,
                 ),
                 title = {
-                    Text(" \uD83C\uDF89  Successfully Added!")
+                    Text("🎉 Successfully Added!")
                 }
             )
         }
     ) { innerPadding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(24.dp)
+                .padding(32.dp), // Increased padding
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = "Nice Job! ${addRecordSuccessfulPageUiState.name}",
-                    style = MaterialTheme.typography.headlineMedium
-                )
+            Text(
+                text = "Nice Job, ${addRecordSuccessfulPageUiState.name}!",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
 
-                Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(32.dp))
 
-                // Display the latest record
-                val latestRecord = viewModel.returnLatestRecord()
-                if (latestRecord.first > 0) {
+            // Display the latest record in a Card
+            val latestRecord = viewModel.returnLatestRecord()
+            if (latestRecord.first > 0) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.Start,
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
                             text = "Your latest record:",
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = "Amount: ${latestRecord.first} ml",
@@ -92,43 +97,44 @@ fun AddRecordSuccessfulPage(
                         )
                     }
                 }
+            }
 
-                Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(32.dp))
 
-                // Progress bar section
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.End
-                ) {
-                    ProgressBar(progress = viewModel.getPercentage())
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "${addRecordSuccessfulPageUiState.drinkingCount}ml / ${addRecordSuccessfulPageUiState.drinkingGoals}ml",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Spacer(Modifier.height(24.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 Text(
-                    text = viewModel.returnRecordMessage(),
-                    style = MaterialTheme.typography.titleMedium
+                    text = "Today's Progress",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                ProgressBar(progress = viewModel.getPercentage())
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "${addRecordSuccessfulPageUiState.drinkingCount}ml / ${addRecordSuccessfulPageUiState.drinkingGoals}ml",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.End)
                 )
             }
 
-            Column(
-                modifier = Modifier.align(Alignment.BottomCenter),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Spacer(Modifier.height(32.dp))
+
+            Text(
+                text = viewModel.returnRecordMessage(),
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.weight(1f))
+
+            Button(
+                onClick = onNext,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Button(
-                    onClick = onNext,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Finish")
-                }
+                Text("Finish", style = MaterialTheme.typography.titleMedium)
             }
-
-
         }
     }
 }
@@ -139,10 +145,10 @@ fun ProgressBar(progress: Float) {
         progress = { progress },
         modifier = Modifier
             .fillMaxWidth()
-            .height(12.dp)
-            .clip(RoundedCornerShape(6.dp)),
+            .height(16.dp)
+            .clip(RoundedCornerShape(8.dp)),
         color = MaterialTheme.colorScheme.primary,
-        trackColor = MaterialTheme.colorScheme.primaryContainer,
+        trackColor = MaterialTheme.colorScheme.surfaceVariant,
         strokeCap = StrokeCap.Round,
     )
 }
@@ -157,6 +163,9 @@ fun PreviewAddRecordSuccessfulPage() {
         previewViewModel.onGenderSelected(Gender.Male)
         previewViewModel.drinkingRecordChanged(500)
         previewViewModel.waterTypeChanged("☕ Warm")
+        previewViewModel.addRecord()
+        previewViewModel.drinkingRecordChanged(1000)
+        previewViewModel.waterTypeChanged("🧊 Ice")
         previewViewModel.addRecord()
 
         AddRecordSuccessfulPage(
