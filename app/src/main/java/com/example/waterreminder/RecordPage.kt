@@ -53,7 +53,7 @@ fun RecordPage(viewModel: ViewModel = viewModel(),
                     titleContentColor = MaterialTheme.colorScheme.primary,
                 ),
                 title = {
-                    Text("➕ Add a Water Record")
+                    Text("➕  Add a Water Record")
                 }
             )
         }

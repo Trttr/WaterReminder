@@ -50,7 +50,7 @@ fun WelcomePage(
                     titleContentColor = MaterialTheme.colorScheme.primary,
                 ),
                 title = {
-                    Text("\uD83E\uDD64 WaterReminder")
+                    Text("\uD83E\uDD64  WaterReminder")
                 }
             )
         }

@@ -7,4 +7,7 @@ data object NavRoutes {
     const val Addrecord = "AddDrinkingRecord"
 
     const val History = "DrinkingHistory"
+
+    const val AddRecordSuccessful = "AddRecordSuccessful"
+
 }

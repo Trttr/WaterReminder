@@ -63,16 +63,19 @@ private fun AppNav() {
                     navController.navigate(NavRoutes.Dashboard)
                 },
                 onNext = {
-                    navController.navigate(NavRoutes.Dashboard)
+                    navController.navigate(NavRoutes.AddRecordSuccessful)
                 }
             )
 
         }
 
-
-
-        composable(NavRoutes.History){
-
+        composable(NavRoutes.AddRecordSuccessful){
+            AddRecordSuccessfulPage(
+                viewModel = viewModel,
+                onNext = {
+                    navController.navigate(NavRoutes.Dashboard)
+                }
+            )
         }
 
 

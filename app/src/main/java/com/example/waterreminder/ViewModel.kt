@@ -75,7 +75,7 @@ class ViewModel : ViewModel() {
         }
     }
 
-    fun getPercentage(): Float{
+    fun getPercentage(): Float {
         val state = _uiState.value
         if (state.drinkingGoals <= 0) {
             return 0f
@@ -83,27 +83,33 @@ class ViewModel : ViewModel() {
         return (state.drinkingCount.toFloat() / state.drinkingGoals.toFloat()).coerceIn(0f, 5f)
     }
 
-    fun displayDrinkingAdvise(): String{
-        return when{
+    fun displayDrinkingAdvise(): String {
+        return when {
             getPercentage() < 1f -> "You haven't drunk enough water today！"
             else -> "You are doing great!"
         }
     }
 
-    fun drinkingRecordChanged(record: Int){
+    fun drinkingRecordChanged(record: Int) {
         _uiState.value = _uiState.value.copy(drinkingRecords = record)
     }
 
-    fun waterTypeChanged(type: String){
-        when{
-            type == "\uD83E\uDDCA Ice" -> _uiState.value = _uiState.value.copy(waterType = WaterType.Ice.toString())
-            type == "☕ Warm" -> _uiState.value = _uiState.value.copy(waterType = WaterType.Warm.toString())
-            type == "\uD83D\uDD25 Hot" -> _uiState.value = _uiState.value.copy(waterType = WaterType.Hot.toString())
+    fun waterTypeChanged(type: String) {
+        when {
+            type == "\uD83E\uDDCA Ice" -> _uiState.value =
+                _uiState.value.copy(waterType = WaterType.Ice.toString())
+
+            type == "☕ Warm" -> _uiState.value =
+                _uiState.value.copy(waterType = WaterType.Warm.toString())
+
+            type == "\uD83D\uDD25 Hot" -> _uiState.value =
+                _uiState.value.copy(waterType = WaterType.Hot.toString())
+
             else -> _uiState.value = _uiState.value.copy(waterType = type)
         }
     }
 
-    fun addRecord(){
+    fun addRecord() {
         val currentState = _uiState.value
         if (currentState.isRecordPageRecordEnabled) {
             val newRecordList = currentState.recordList.toMutableList().apply {
@@ -118,6 +124,24 @@ class ViewModel : ViewModel() {
             )
         }
     }
+
+    fun returnLatestRecord(): Pair<Int, String> {
+        val currentState = _uiState.value
+        val recordList = currentState.recordList
+        if (!recordList.isEmpty()) {
+            return recordList.last()
+        }
+        return Pair(0, "Error")
+    }
+
+    fun returnRecordMessage(): String {
+        val currentState = _uiState.value
+        if (currentState.drinkingCount < currentState.drinkingGoals / 2) return "You need to drink more water!"
+        if (currentState.drinkingCount > currentState.drinkingGoals / 2 && currentState.drinkingCount < currentState.drinkingGoals) return "Come on! You only left ${currentState.drinkingGoals - currentState.drinkingCount}ml to go!"
+        if (currentState.drinkingCount >= currentState.drinkingGoals) return "Congratulations! You've reached your goal!"
+        else return "Error"
+    }
 }
+
 
 
