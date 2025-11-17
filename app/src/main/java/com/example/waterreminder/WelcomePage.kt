@@ -132,7 +132,7 @@ fun WelcomePage(
                 )
 
                 Spacer(Modifier.height(5.dp))
-                if (welcomeUiState.isNextEnabled){
+                if (welcomeUiState.isWelcomePageNextEnabled){
                     Text(
                         text = viewModel.checkDrinkingStatus(),
                         style = MaterialTheme.typography.titleSmall
@@ -142,7 +142,7 @@ fun WelcomePage(
 
             Button(
                 onClick = onNext,
-                enabled = welcomeUiState.isNextEnabled,
+                enabled = welcomeUiState.isWelcomePageNextEnabled,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()

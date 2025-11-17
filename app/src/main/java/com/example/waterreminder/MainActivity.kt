@@ -47,10 +47,35 @@ private fun AppNav() {
         composable(NavRoutes.Dashboard) {
             DashBoard(
                 viewModel = viewModel,
+                goToRecord = {
+                    navController.navigate(NavRoutes.Addrecord)
+                },
+                goToHistory = {
+                    navController.navigate(NavRoutes.History)
+                }
+            )
+        }
+
+        composable(NavRoutes.Addrecord){
+            RecordPage(
+                viewModel = viewModel,
+                onBack = {
+                    navController.navigate(NavRoutes.Dashboard)
+                },
                 onNext = {
                     navController.navigate(NavRoutes.Dashboard)
                 }
             )
+
         }
+
+
+
+        composable(NavRoutes.History){
+
+        }
+
+
+
     }
 }
