@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.example.waterreminder" />
+                  <option name="mobileSdkAppId" value="1:364374750332:android:2c811535346ba907bb85f9" />
+                  <option name="projectId" value="waterreminder-cf0bf" />
+                  <option name="projectNumber" value="364374750332" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
