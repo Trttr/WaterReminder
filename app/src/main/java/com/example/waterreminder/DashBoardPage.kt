@@ -1,6 +1,6 @@
 package com.example.waterreminder
 
-import android.annotation.SuppressLint
+import android.app.Application
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -22,19 +22,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.compose.AppTheme
 import com.example.waterreminder.ui.Gender
-import com.example.waterreminder.ui.ViewModel
+import com.example.waterreminder.ui.WaterViewModel
+import com.example.waterreminder.ui.WaterViewModelFactory
 import com.mikhaellopez.circularprogressbar.CircularProgressBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashBoard(
-    viewModel: ViewModel = viewModel(),
+    viewModel: WaterViewModel,
     goToRecord: () -> Unit,
     goToHistory: () -> Unit
 ) {
@@ -144,19 +146,19 @@ fun WaterProgressChart(
 
 
 
-@SuppressLint("ViewModelConstructorInComposable")
 @Preview(showBackground = true)
 @Composable
 fun PreviewDashBoard() {
-    val viewModel = ViewModel().apply {
-        onNameChange("Donald")
-        onGenderSelected(Gender.Male)
-        onDrinkingGoalsChange(2800)
-    }
+    val app = LocalContext.current.applicationContext as Application
+    val previewViewModel: WaterViewModel = viewModel(factory = WaterViewModelFactory(app))
+
+    previewViewModel.onNameChange("Donald")
+    previewViewModel.onGenderSelected(Gender.Male)
+    previewViewModel.onDrinkingGoalsChange(2800)
 
     AppTheme {
         DashBoard(
-            viewModel = viewModel,
+            viewModel = previewViewModel,
             goToRecord = {},
             goToHistory = {}
         )

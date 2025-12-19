@@ -1,9 +1,20 @@
 package com.example.waterreminder.ui
 
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.example.waterreminder.Room.AppDatabase
+import com.example.waterreminder.Room.LocalUserEntity
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import java.util.UUID
 
 enum class Gender { Male, Female }
 enum class WaterType {Warm, Ice, Hot}
@@ -15,7 +26,9 @@ data class UiState(
     val drinkingCount: Int = 0,
     val drinkingRecords: Int = 0,
     val waterType: String = "",
-    val recordList: MutableList<Pair<Int, String>> = mutableListOf<Pair<Int, String>>()
+    val recordList: MutableList<Pair<Int, String>> = mutableListOf<Pair<Int, String>>(),
+    val currentUserKey: String = "",
+    val recordIds: MutableList<String> = mutableListOf()
 ) {
     val isWelcomePageNextEnabled: Boolean
         get() = name.isNotBlank() && gender != null && drinkingGoals > 0
@@ -26,10 +39,161 @@ data class UiState(
 
 
 
-class ViewModel : ViewModel() {
+class WaterViewModel(app: Application) : AndroidViewModel(app) {
+
+    private val localUserDao = AppDatabase.getInstance(app).localUserDao()
+    private val db = FirebaseFirestore.getInstance()
+
+    private fun nameKeyOf(name: String) = name.trim().lowercase()
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    /**
+     * Login by name only.
+     * - If user exists in Cloud (users/{nameKey}), load profile + records.
+     * - If not exists, caller should navigate to Welcome page.
+     */
+    fun loginByName(
+        nameInput: String,
+        onExistingUser: () -> Unit,
+        onNewUser: () -> Unit,
+        onError: (Throwable) -> Unit = {}
+    ) {
+        val name = nameInput.trim()
+        if (name.isBlank()) {
+            onNewUser()
+            return
+        }
+        val key = nameKeyOf(name)
+
+        viewModelScope.launch {
+            try {
+                val userDoc = db.collection("users").document(key).get().await()
+                if (!userDoc.exists()) {
+                    // New user -> Welcome
+                    _uiState.update { it.copy(name = name, currentUserKey = key) }
+                    onNewUser()
+                    return@launch
+                }
+
+                val cloudName = userDoc.getString("name") ?: name
+                val cloudGender = userDoc.getString("gender")
+                val cloudGoals = (userDoc.getLong("drinkingGoals") ?: 0L).toInt()
+
+                val genderEnum = cloudGender?.let { runCatching { Gender.valueOf(it) }.getOrNull() }
+
+                // Ensure local row exists (drinkingCount local-only in your design)
+                val local = localUserDao.getUser(key)
+                if (local == null) {
+                    localUserDao.upsertUser(
+                        LocalUserEntity(
+                            nameKey = key,
+                            name = cloudName,
+                            gender = (genderEnum ?: Gender.Male).name,
+                            drinkingCount = 0
+                        )
+                    )
+                }
+                val local2 = localUserDao.getUser(key)
+
+                _uiState.update {
+                    it.copy(
+                        name = cloudName,
+                        gender = genderEnum,
+                        drinkingGoals = cloudGoals,
+                        drinkingCount = local2?.drinkingCount ?: 0,
+                        currentUserKey = key
+                    )
+                }
+
+                // Load records from cloud into UI
+                loadRecordsFromCloud()
+
+                onExistingUser()
+            } catch (t: Throwable) {
+                onError(t)
+            }
+        }
+    }
+
+    /** Create user after Welcome page (writes Cloud profile + creates local row). */
+    fun createUserAfterWelcome(
+        name: String,
+        gender: Gender,
+        drinkingGoals: Int,
+        onDone: () -> Unit = {},
+        onError: (Throwable) -> Unit = {}
+    ) {
+        val cleanName = name.trim()
+        val key = nameKeyOf(cleanName)
+
+        viewModelScope.launch {
+            try {
+                // Cloud: users/{nameKey}
+                val data = hashMapOf(
+                    "name" to cleanName,
+                    "gender" to gender.name,
+                    "drinkingGoals" to drinkingGoals
+                )
+                db.collection("users").document(key).set(data).await()
+
+                // Local: local_user row (count starts at 0)
+                localUserDao.upsertUser(
+                    LocalUserEntity(
+                        nameKey = key,
+                        name = cleanName,
+                        gender = gender.name,
+                        drinkingCount = 0
+                    )
+                )
+
+                _uiState.update {
+                    it.copy(
+                        name = cleanName,
+                        gender = gender,
+                        drinkingGoals = drinkingGoals,
+                        drinkingCount = 0,
+                        currentUserKey = key
+                    )
+                }
+
+                onDone()
+            } catch (t: Throwable) {
+                onError(t)
+            }
+        }
+    }
+
+    /** Load this user's records from Cloud (records where nameKey == currentUserKey). */
+    fun loadRecordsFromCloud(onError: (Throwable) -> Unit = {}) {
+        val key = _uiState.value.currentUserKey
+        if (key.isBlank()) return
+
+        viewModelScope.launch {
+            try {
+                val qs = db.collection("records")
+                    .whereEqualTo("nameKey", key)
+                    .orderBy("timestamp")
+                    .get()
+                    .await()
+
+                val pairs = mutableListOf<Pair<Int, String>>()
+                val ids = mutableListOf<String>()
+
+                for (d in qs.documents) {
+                    val amount = (d.getLong("drinkingRecords") ?: 0L).toInt()
+                    val wt = d.getString("waterType") ?: ""
+                    pairs.add(Pair(amount, wt))
+                    ids.add(d.id)
+                }
+
+                _uiState.update { it.copy(recordList = pairs, recordIds = ids) }
+            } catch (t: Throwable) {
+                onError(t)
+            }
+        }
+    }
 
     fun onNameChange(newName: String) {
         _uiState.value = _uiState.value.copy(name = newName)
@@ -109,19 +273,88 @@ class ViewModel : ViewModel() {
         }
     }
 
-    fun addRecord() {
+    fun addRecord(onError: (Throwable) -> Unit = {}) {
         val currentState = _uiState.value
-        if (currentState.isRecordPageRecordEnabled) {
-            val newRecordList = currentState.recordList.toMutableList().apply {
-                add(Pair(currentState.drinkingRecords, currentState.waterType))
-            }
-            _uiState.value = currentState.copy(
-                drinkingCount = currentState.drinkingCount + currentState.drinkingRecords,
-                recordList = newRecordList,
+        if (!currentState.isRecordPageRecordEnabled) return
 
-                drinkingRecords = 0,
-                waterType = ""
-            )
+        val key = currentState.currentUserKey.ifBlank { nameKeyOf(currentState.name) }
+        if (key.isBlank()) return
+
+        val amount = currentState.drinkingRecords
+        val wt = currentState.waterType
+        val ts = System.currentTimeMillis()
+        val recordId = UUID.randomUUID().toString()
+
+        viewModelScope.launch {
+            try {
+                // 1) Cloud: insert record
+                val data = hashMapOf(
+                    "nameKey" to key,
+                    "drinkingRecords" to amount,
+                    "waterType" to wt,
+                    "timestamp" to ts
+                )
+                db.collection("records").document(recordId).set(data).await()
+
+                // 2) Local: update count (+=)
+                localUserDao.increaseCount(key, amount)
+                val local = localUserDao.getUser(key)
+
+                // 3) UI: append record + reset inputs
+                val newRecordList = currentState.recordList.toMutableList().apply {
+                    add(Pair(amount, wt))
+                }
+                val newIds = currentState.recordIds.toMutableList().apply {
+                    add(recordId)
+                }
+
+                _uiState.value = currentState.copy(
+                    drinkingCount = local?.drinkingCount ?: (currentState.drinkingCount + amount),
+                    recordList = newRecordList,
+                    recordIds = newIds,
+                    drinkingRecords = 0,
+                    waterType = "",
+                    currentUserKey = key
+                )
+            } catch (t: Throwable) {
+                onError(t)
+            }
+        }
+    }
+
+    fun deleteRecordAt(index: Int, onError: (Throwable) -> Unit = {}) {
+        val currentState = _uiState.value
+        val key = currentState.currentUserKey
+        if (key.isBlank()) return
+        if (index !in currentState.recordList.indices) return
+        if (index !in currentState.recordIds.indices) return
+
+        val (amount, _) = currentState.recordList[index]
+        val recordId = currentState.recordIds[index]
+
+        viewModelScope.launch {
+            try {
+                // 1) Cloud delete
+                db.collection("records").document(recordId).delete().await()
+
+                // 2) Local count -=
+                localUserDao.decreaseCount(key, amount)
+                val local = localUserDao.getUser(key)
+
+                // 3) UI remove
+                val newList = currentState.recordList.toMutableList().apply { removeAt(index) }
+                val newIds = currentState.recordIds.toMutableList().apply { removeAt(index) }
+
+                _uiState.update {
+                    it.copy(
+                        drinkingCount = local?.drinkingCount ?: (it.drinkingCount - amount),
+                        recordList = newList,
+                        recordIds = newIds
+                    )
+                }
+            } catch (t: Throwable) {
+                onError(t)
+            }
         }
     }
 
@@ -141,7 +374,40 @@ class ViewModel : ViewModel() {
         if (currentState.drinkingCount >= currentState.drinkingGoals) return "Congratulations! You've reached your goal!"
         else return "Error"
     }
+
+    fun deleteCurrentUser(onDone: () -> Unit = {}, onError: (Throwable) -> Unit = {}) {
+        val key = _uiState.value.currentUserKey
+        if (key.isBlank()) return
+
+        viewModelScope.launch {
+            try {
+                // Delete all records for this user
+                val qs = db.collection("records").whereEqualTo("nameKey", key).get().await()
+                val batch = db.batch()
+                qs.documents.forEach { batch.delete(it.reference) }
+                batch.delete(db.collection("users").document(key))
+                batch.commit().await()
+
+                // Local delete
+                localUserDao.deleteUser(key)
+
+                // Reset UI
+                _uiState.value = UiState()
+                onDone()
+            } catch (t: Throwable) {
+                onError(t)
+            }
+        }
+    }
 }
 
 
-
+class WaterViewModelFactory(private val app: Application) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(WaterViewModel::class.java)) {
+            return WaterViewModel(app) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}

@@ -1,6 +1,6 @@
 package com.example.waterreminder
 
-import android.annotation.SuppressLint
+import android.app.Application
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,18 +28,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.compose.AppTheme
-import com.example.waterreminder.ui.ViewModel
+import com.example.waterreminder.ui.WaterViewModel
+import com.example.waterreminder.ui.WaterViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecordPage(viewModel: ViewModel = viewModel(),
-               onBack: () -> Unit,
-               onNext: () -> Unit){
+fun RecordPage(
+    viewModel: WaterViewModel,
+    onBack: () -> Unit,
+    onNext: () -> Unit
+){
 
     val recordPageUiState by viewModel.uiState.collectAsState()
     var selectedWaterType by remember { mutableStateOf<String?>(null) }
@@ -108,7 +112,7 @@ fun RecordPage(viewModel: ViewModel = viewModel(),
             Column(modifier = Modifier.align(Alignment.BottomCenter)) {
 
                 Button(
-                    onClick = { onNext(); viewModel.addRecord(); },
+                    onClick = { viewModel.addRecord(); onNext() },
                     enabled = recordPageUiState.isRecordPageRecordEnabled,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -159,13 +163,14 @@ private fun WaterTypeCard(
     }
 }
 
-
-@SuppressLint("ViewModelConstructorInComposable")
 @Preview(showBackground = true)
 @Composable
 fun PreviewRecordPage() {
     AppTheme {
+        val app = LocalContext.current.applicationContext as Application
+        val previewViewModel: WaterViewModel = viewModel(factory = WaterViewModelFactory(app))
         RecordPage(
+            viewModel = previewViewModel,
             onBack = {},
             onNext = {}
         )

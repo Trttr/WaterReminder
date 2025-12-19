@@ -1,6 +1,6 @@
 package com.example.waterreminder
 
-import android.annotation.SuppressLint
+import android.app.Application
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,18 +27,20 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.compose.AppTheme
 import com.example.waterreminder.ui.Gender
-import com.example.waterreminder.ui.ViewModel
+import com.example.waterreminder.ui.WaterViewModel
+import com.example.waterreminder.ui.WaterViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WelcomePage(
-    viewModel: ViewModel = viewModel(),
+    viewModel: WaterViewModel,
     onNext: () -> Unit
 ) {
     val welcomeUiState by viewModel.uiState.collectAsState()
@@ -141,7 +143,18 @@ fun WelcomePage(
             }
 
             Button(
-                onClick = onNext,
+                onClick = {
+                    val st = welcomeUiState
+                    val g = st.gender
+                    if (g != null) {
+                        viewModel.createUserAfterWelcome(
+                            name = st.name,
+                            gender = g,
+                            drinkingGoals = st.drinkingGoals,
+                            onDone = { onNext() }
+                        )
+                    }
+                },
                 enabled = welcomeUiState.isWelcomePageNextEnabled,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -179,19 +192,18 @@ private fun GenderOption(
     }
 }
 
-@SuppressLint("ViewModelConstructorInComposable")
 @Preview(showBackground = true)
 @Composable
 fun PreviewWelcomePage() {
-    val fakeVm = ViewModel().apply {
-        onNameChange("Donald")
-        onGenderSelected(Gender.Male)
-        onDrinkingGoalsChange(2800)
-    }
+    val app = LocalContext.current.applicationContext as Application
+    val vm: WaterViewModel = viewModel(factory = WaterViewModelFactory(app))
+    vm.onNameChange("Donald")
+    vm.onGenderSelected(Gender.Male)
+    vm.onDrinkingGoalsChange(2800)
 
     AppTheme {
         WelcomePage(
-            viewModel = fakeVm,
+            viewModel = vm,
             onNext = {}
         )
     }

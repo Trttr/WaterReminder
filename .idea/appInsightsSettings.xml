@@ -9,7 +9,7 @@
               <option name="connection">
                 <ConnectionSetting>
                   <option name="appId" value="com.example.waterreminder" />
-                  <option name="mobileSdkAppId" value="1:364374750332:android:2c811535346ba907bb85f9" />
+                  <option name="mobileSdkAppId" value="1:364374750332:android:0f2a88d2d184b041bb85f9" />
                   <option name="projectId" value="waterreminder-cf0bf" />
                   <option name="projectNumber" value="364374750332" />
                 </ConnectionSetting>

@@ -1,6 +1,6 @@
 package com.example.waterreminder
 
-import android.annotation.SuppressLint
+import android.app.Application
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,17 +29,19 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.compose.AppTheme
 import com.example.waterreminder.ui.Gender
-import com.example.waterreminder.ui.ViewModel
+import com.example.waterreminder.ui.WaterViewModel
+import com.example.waterreminder.ui.WaterViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryPage(
-    viewModel: ViewModel,
+    viewModel: WaterViewModel,
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -126,12 +128,12 @@ private fun HistoryRecordItem(record: Pair<Int, String>) {
 }
 
 
-@SuppressLint("ViewModelConstructorInComposable")
 @Preview(showBackground = true, name = "History Page With Records")
 @Composable
 fun PreviewHistoryPage() {
     AppTheme {
-        val previewViewModel = viewModel<ViewModel>()
+        val app = LocalContext.current.applicationContext as Application
+        val previewViewModel: WaterViewModel = viewModel(factory = WaterViewModelFactory(app))
         // Simulate some records for the preview
         previewViewModel.onNameChange("Ray")
         previewViewModel.onGenderSelected(Gender.Male)
@@ -152,13 +154,14 @@ fun PreviewHistoryPage() {
     }
 }
 
-@SuppressLint("ViewModelConstructorInComposable")
 @Preview(showBackground = true, name = "History Page Empty")
 @Composable
 fun PreviewHistoryPageEmpty() {
     AppTheme {
+        val app = LocalContext.current.applicationContext as Application
+        val previewViewModel: WaterViewModel = viewModel(factory = WaterViewModelFactory(app))
         HistoryPage(
-            viewModel = viewModel(),
+            viewModel = previewViewModel,
             onBack = {}
         )
     }

@@ -1,6 +1,6 @@
 package com.example.waterreminder
 
-import android.annotation.SuppressLint
+import android.app.Application
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -26,18 +26,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.compose.AppTheme
 import com.example.waterreminder.ui.Gender
-import com.example.waterreminder.ui.ViewModel
+import com.example.waterreminder.ui.WaterViewModel
+import com.example.waterreminder.ui.WaterViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddRecordSuccessfulPage(
-    viewModel: ViewModel,
+    viewModel: WaterViewModel,
     onNext: () -> Unit
 ) {
     val addRecordSuccessfulPageUiState by viewModel.uiState.collectAsState()
@@ -153,12 +155,12 @@ fun ProgressBar(progress: Float) {
     )
 }
 
-@SuppressLint("ViewModelConstructorInComposable")
 @Preview(showBackground = true)
 @Composable
 fun PreviewAddRecordSuccessfulPage() {
     AppTheme {
-        val previewViewModel: ViewModel = viewModel()
+        val app = LocalContext.current.applicationContext as Application
+        val previewViewModel: WaterViewModel = viewModel(factory = WaterViewModelFactory(app))
         previewViewModel.onNameChange("Donald")
         previewViewModel.onGenderSelected(Gender.Male)
         previewViewModel.drinkingRecordChanged(500)
