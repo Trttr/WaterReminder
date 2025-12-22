@@ -12,8 +12,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.compose.AppTheme
-import com.example.waterreminder.ui.WaterViewModel
-import com.example.waterreminder.ui.WaterViewModelFactory
 
 
 class MainActivity : ComponentActivity() {
@@ -58,6 +56,9 @@ private fun AppNav() {
                 },
                 goToHistory = {
                     navController.navigate(NavRoutes.History)
+                },
+                onGoProfile = {
+                    navController.navigate(NavRoutes.Profile)
                 }
             )
         }
@@ -93,6 +94,13 @@ private fun AppNav() {
             )
         }
 
+        composable(NavRoutes.Profile) {
+            ProfilePage(
+                viewModel = viewModel,
+                onBack = { navController.navigate(NavRoutes.Dashboard) }
+            )
+        }
+
         composable(NavRoutes.Login) {
             LoginPage(
                 viewModel = viewModel,
@@ -111,3 +119,5 @@ private fun AppNav() {
 
     }
 }
+
+

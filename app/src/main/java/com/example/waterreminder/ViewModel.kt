@@ -1,4 +1,4 @@
-package com.example.waterreminder.ui
+package com.example.waterreminder
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -19,6 +19,12 @@ import java.util.UUID
 enum class Gender { Male, Female }
 enum class WaterType {Warm, Ice, Hot}
 
+data class UiRecord(
+    val amount: Int,
+    val waterType: String,
+    val timestamp: Long
+)
+
 data class UiState(
     val name: String = "",
     val gender: Gender? = null,
@@ -26,7 +32,7 @@ data class UiState(
     val drinkingCount: Int = 0,
     val drinkingRecords: Int = 0,
     val waterType: String = "",
-    val recordList: MutableList<Pair<Int, String>> = mutableListOf<Pair<Int, String>>(),
+    val recordList: MutableList<UiRecord> = mutableListOf(),
     val currentUserKey: String = "",
     val recordIds: MutableList<String> = mutableListOf()
 ) {
@@ -165,6 +171,49 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Update current user's profile fields in Cloud: gender + drinkingGoals (name read-only).
+     * - Writes to users/{currentUserKey}
+     * - Updates uiState so Dashboard refreshes immediately
+     */
+    fun updateProfileGenderGoals(
+        gender: Gender,
+        goals: Int,
+        onDone: () -> Unit,
+        onError: (Throwable) -> Unit = {}
+    ) {
+        val key = _uiState.value.currentUserKey
+        if (key.isBlank()) {
+            onError(IllegalStateException("No current user"))
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val name = _uiState.value.name // keep name unchanged
+
+                val data = hashMapOf(
+                    "name" to name,
+                    "gender" to gender.name,
+                    "drinkingGoals" to goals
+                )
+
+                db.collection("users").document(key).set(data).await()
+
+                _uiState.update {
+                    it.copy(
+                        gender = gender,
+                        drinkingGoals = goals
+                    )
+                }
+
+                onDone()
+            } catch (t: Throwable) {
+                onError(t)
+            }
+        }
+    }
+
     /** Load this user's records from Cloud (records where nameKey == currentUserKey). */
     fun loadRecordsFromCloud(onError: (Throwable) -> Unit = {}) {
         val key = _uiState.value.currentUserKey
@@ -174,17 +223,19 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val qs = db.collection("records")
                     .whereEqualTo("nameKey", key)
-                    .orderBy("timestamp")
                     .get()
                     .await()
 
-                val pairs = mutableListOf<Pair<Int, String>>()
+                val sortedDocs = qs.documents.sortedBy { it.getLong("timestamp") ?: 0L }
+
+                val pairs = mutableListOf<UiRecord>()
                 val ids = mutableListOf<String>()
 
-                for (d in qs.documents) {
+                for (d in sortedDocs) {
                     val amount = (d.getLong("drinkingRecords") ?: 0L).toInt()
                     val wt = d.getString("waterType") ?: ""
-                    pairs.add(Pair(amount, wt))
+                    val ts = d.getLong("timestamp") ?: 0L
+                    pairs.add(UiRecord(amount = amount, waterType = wt, timestamp = ts))
                     ids.add(d.id)
                 }
 
@@ -302,7 +353,7 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
 
                 // 3) UI: append record + reset inputs
                 val newRecordList = currentState.recordList.toMutableList().apply {
-                    add(Pair(amount, wt))
+                    add(UiRecord(amount = amount, waterType = wt, timestamp = ts))
                 }
                 val newIds = currentState.recordIds.toMutableList().apply {
                     add(recordId)
@@ -329,7 +380,7 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
         if (index !in currentState.recordList.indices) return
         if (index !in currentState.recordIds.indices) return
 
-        val (amount, _) = currentState.recordList[index]
+        val amount = currentState.recordList[index].amount
         val recordId = currentState.recordIds[index]
 
         viewModelScope.launch {
@@ -361,8 +412,9 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
     fun returnLatestRecord(): Pair<Int, String> {
         val currentState = _uiState.value
         val recordList = currentState.recordList
-        if (!recordList.isEmpty()) {
-            return recordList.last()
+        if (recordList.isNotEmpty()) {
+            val last = recordList.last()
+            return Pair(last.amount, last.waterType)
         }
         return Pair(0, "Error")
     }

@@ -1,6 +1,5 @@
 package com.example.waterreminder
 
-import android.app.Application
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -26,15 +25,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.compose.AppTheme
-import com.example.waterreminder.ui.Gender
-import com.example.waterreminder.ui.WaterViewModel
-import com.example.waterreminder.ui.WaterViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -155,24 +149,71 @@ fun ProgressBar(progress: Float) {
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
 fun PreviewAddRecordSuccessfulPage() {
     AppTheme {
-        val app = LocalContext.current.applicationContext as Application
-        val previewViewModel: WaterViewModel = viewModel(factory = WaterViewModelFactory(app))
-        previewViewModel.onNameChange("Donald")
-        previewViewModel.onGenderSelected(Gender.Male)
-        previewViewModel.drinkingRecordChanged(500)
-        previewViewModel.waterTypeChanged("☕ Warm")
-        previewViewModel.addRecord()
-        previewViewModel.drinkingRecordChanged(1000)
-        previewViewModel.waterTypeChanged("🧊 Ice")
-        previewViewModel.addRecord()
+        // ⚠️ Preview 中不要使用 ViewModel（会触发 Render Issues）
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("🎉 Successfully Added!") }
+                )
+            }
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "Nice Job, Donald!",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
 
-        AddRecordSuccessfulPage(
-            viewModel = previewViewModel,
-            onNext = {}
-        )
+                Spacer(Modifier.height(32.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("Your latest record:")
+                        Text("Amount: 500 ml")
+                        Text("Type: ☕ Warm")
+                    }
+                }
+
+                Spacer(Modifier.height(32.dp))
+
+                Text("Today's Progress")
+                ProgressBar(progress = 0.6f)
+                Spacer(Modifier.height(8.dp))
+                Text("1500ml / 2800ml")
+
+                Spacer(Modifier.height(32.dp))
+
+                Text(
+                    text = "Great job! Keep drinking water 💧",
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(Modifier.weight(1f))
+
+                Button(
+                    onClick = {},
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Finish")
+                }
+            }
+        }
     }
 }
