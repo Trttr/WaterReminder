@@ -11,10 +11,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -36,7 +40,8 @@ import com.example.compose.AppTheme
 @Composable
 fun WelcomePage(
     viewModel: WaterViewModel,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    onBack: () -> Unit
 ) {
     val welcomeUiState by viewModel.uiState.collectAsState()
     Scaffold(
@@ -48,6 +53,14 @@ fun WelcomePage(
                 ),
                 title = {
                     Text("\uD83E\uDD64  WaterReminder")
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to login"
+                        )
+                    }
                 }
             )
         }
@@ -192,7 +205,6 @@ private fun GenderOption(
 @Composable
 fun PreviewWelcomePage() {
     AppTheme {
-        // Preview 中不要使用 ViewModel（避免 Room / Firestore / Render Issues）
         var name by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("Donald") }
         var gender by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Gender?>(Gender.Male) }
         var goalsText by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("2800") }
@@ -290,7 +302,7 @@ fun PreviewWelcomePage() {
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                 ) {
-                    Text("Next")
+                    Text("Register")
                 }
             }
         }

@@ -8,20 +8,30 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -71,12 +81,17 @@ fun HistoryPage(
                     Text("Go add some water intake records.", style = MaterialTheme.typography.bodyLarge)
                 }
             } else {
+                val records = uiState.recordList
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp), // Increased spacing
                 ) {
-                    items(uiState.recordList.reversed()) { record ->
-                        HistoryRecordItem(record = record)
+                    itemsIndexed(records.reversed()) { reversedIndex, record ->
+                        val originalIndex = records.lastIndex - reversedIndex
+                        HistoryRecordItem(
+                            record = record,
+                            onDelete = { viewModel.deleteRecordAt(originalIndex) }
+                        )
                     }
                 }
             }
@@ -94,42 +109,86 @@ fun HistoryPage(
 }
 
 @Composable
-private fun HistoryRecordItem(record: UiRecord) {
+private fun WaterTypeIcon(waterType: String) {
+    val icon = when (waterType) {
+        "Ice" -> "🧊"
+        "Warm" -> "☕"
+        "Hot" -> "🔥"
+        else -> "💧"
+    }
+    Text(text = icon, style = MaterialTheme.typography.headlineMedium)
+}
+
+@Composable
+private fun HistoryRecordItem(
+    record: UiRecord,
+    onDelete: (() -> Unit)? = null
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            WaterTypeIcon(record.waterType)
+
+            Spacer(Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "${record.amount} ml",
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
+                Spacer(Modifier.height(4.dp))
+                val sdf = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
                 Text(
-                    text = record.waterType,
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = sdf.format(Date(record.timestamp)),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-            Text(
-                text = sdf.format(Date(record.timestamp)),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (onDelete != null) {
+                IconButton(onClick = { showDialog = true }) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "Delete record",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         }
+    }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("Delete record") },
+            text = { Text("Are you sure you want to delete this record?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDialog = false
+                        onDelete?.invoke()
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -140,9 +199,9 @@ private fun HistoryRecordItem(record: UiRecord) {
 fun PreviewHistoryPage() {
     AppTheme {
         val records = listOf(
-            UiRecord(500, "☕ Warm", System.currentTimeMillis()),
-            UiRecord(350, "🧊 Ice", System.currentTimeMillis() - 60 * 60 * 1000),
-            UiRecord(1000, "🔥 Hot", System.currentTimeMillis() - 2 * 60 * 60 * 1000)
+            UiRecord(500, "Warm", System.currentTimeMillis()),
+            UiRecord(350, "Ice", System.currentTimeMillis() - 60 * 60 * 1000),
+            UiRecord(1000, "Hot", System.currentTimeMillis() - 2 * 60 * 60 * 1000)
         )
 
         Scaffold(
@@ -164,10 +223,10 @@ fun PreviewHistoryPage() {
             ) {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(records.reversed()) { record ->
-                        HistoryRecordItem(record = record)
+                    itemsIndexed(records.reversed()) { _, record ->
+                        HistoryRecordItem(record = record, onDelete = {})
                     }
                 }
 

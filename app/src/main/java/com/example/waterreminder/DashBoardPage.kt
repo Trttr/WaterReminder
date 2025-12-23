@@ -1,5 +1,6 @@
 package com.example.waterreminder
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -9,8 +10,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -22,25 +29,54 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.compose.AppTheme
 import com.mikhaellopez.circularprogressbar.CircularProgressBar
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashBoard(
     viewModel: WaterViewModel,
     goToRecord: () -> Unit,
     goToHistory: () -> Unit,
-    onGoProfile: () -> Unit
+    onGoProfile: () -> Unit,
+    onLogout: () -> Unit
 ) {
-    val dashBoardUiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    DashBoardContent(
+        name = uiState.name,
+        progress = viewModel.getPercentage(),
+        drinkingCount = uiState.drinkingCount,
+        drinkingGoals = uiState.drinkingGoals,
+        advise = viewModel.displayDrinkingAdvise(),
+        goToRecord = goToRecord,
+        goToHistory = goToHistory,
+        onGoProfile = onGoProfile,
+        onLogout = onLogout
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DashBoardContent(
+    name: String,
+    progress: Float,
+    drinkingCount: Int,
+    drinkingGoals: Int,
+    advise: String,
+    goToRecord: () -> Unit,
+    goToHistory: () -> Unit,
+    onGoProfile: () -> Unit,
+    onLogout: () -> Unit
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -49,79 +85,131 @@ fun DashBoard(
                     titleContentColor = MaterialTheme.colorScheme.primary,
                 ),
                 title = {
-                    Text("💧 Hi! ${dashBoardUiState.name}")
+                    Text("💧 Hi, $name!")
                 },
                 actions = {
-                    IconButton(onClick = onGoProfile) {
+                    var menuExpanded by remember { mutableStateOf(false) }
+
+                    IconButton(onClick = { menuExpanded = true }) {
                         Icon(
-                            imageVector = Icons.Default.AccountCircle,
-                            contentDescription = "Edit Profile",
-                            tint = Color(0xFF2E7D32) // green
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Menu",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Edit Profile") },
+                            onClick = {
+                                menuExpanded = false
+                                onGoProfile()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Log out") },
+                            onClick = {
+                                menuExpanded = false
+                                onLogout()
+                            }
                         )
                     }
                 }
             )
         }
     ) { innerPadding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(24.dp)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                modifier = Modifier.align(Alignment.TopCenter),
-                horizontalAlignment = Alignment.Start
-            ) {
-                Text(
-                    text = "Today's water intake",
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
 
-                Spacer(Modifier.height(32.dp))
+            ProgressCard(progress, drinkingCount, drinkingGoals)
 
-                WaterProgressChart(progress = viewModel.getPercentage(), modifier = Modifier.align(Alignment.CenterHorizontally))
+            Spacer(Modifier.height(24.dp))
 
-                Spacer(Modifier.height(8.dp))
+            Text(
+                text = advise,
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
-                Text(
-                    text = "${dashBoardUiState.drinkingCount} / ${dashBoardUiState.drinkingGoals} ml",
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
+            Spacer(Modifier.weight(1f))
 
-                Spacer(Modifier.height(28.dp))
-
-                Text(
-                    text = viewModel.displayDrinkingAdvise(),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-            }
-
-            Column(
-                modifier = Modifier.align(Alignment.BottomCenter),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Button(
-                    onClick = goToRecord,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Record Water Intake")
-                }
-                Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = goToHistory,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("History")
-                }
-            }
+            ActionButtons(goToRecord, goToHistory)
         }
     }
 }
 
+@Composable
+private fun ProgressCard(progress: Float, drinkingCount: Int, drinkingGoals: Int) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 24.dp, horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Today's Progress",
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                WaterProgressChart(progress = progress)
+            }
+
+            Text(
+                text = "$drinkingCount / $drinkingGoals ml",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActionButtons(goToRecord: () -> Unit, goToHistory: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Button(
+            onClick = goToRecord,
+            modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) {
+            Icon(Icons.Default.WaterDrop, contentDescription = null)
+            Spacer(Modifier.size(8.dp))
+            Text("Record", style = MaterialTheme.typography.titleMedium)
+        }
+        Button(
+            onClick = goToHistory,
+            modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) {
+            Icon(Icons.Default.History, contentDescription = null)
+            Spacer(Modifier.size(8.dp))
+            Text("History", style = MaterialTheme.typography.titleMedium)
+        }
+    }
+}
 
 @Composable
 fun WaterProgressChart(
@@ -129,7 +217,7 @@ fun WaterProgressChart(
     modifier: Modifier = Modifier
 ) {
     val progressColor = MaterialTheme.colorScheme.primary
-    val backgroundColor = MaterialTheme.colorScheme.primaryContainer
+    val backgroundColor = MaterialTheme.colorScheme.surfaceVariant
 
     Box(
         contentAlignment = Alignment.Center,
@@ -137,118 +225,43 @@ fun WaterProgressChart(
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
-            factory = { context ->
-                CircularProgressBar(context).apply {
+            factory = {
+                CircularProgressBar(it).apply {
                     progressMax = 100f
-                    setProgressWithAnimation(progress * 100f)
-
-                    progressBarWidth = 16f
-                    backgroundProgressBarWidth = 16f
+                    this.progress = progress * 100f
+                    progressBarWidth = 20f
+                    backgroundProgressBarWidth = 20f
                     roundBorder = true
-
                     progressBarColor = progressColor.toArgb()
                     backgroundProgressBarColor = backgroundColor.toArgb()
                 }
             },
             update = { view ->
-                view.setProgressWithAnimation(progress * 100f)
+                view.setProgressWithAnimation(progress * 100f, 1000)
             }
         )
         Text(
             text = "${(progress * 100).toInt()}%",
-            style = MaterialTheme.typography.headlineLarge
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.primary
         )
     }
 }
 
-
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
 fun PreviewDashBoard() {
     AppTheme {
-        val name = "Donald"
-        val progress = 0.38f
-        val advise = "You need to drink more water!"
-
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.primary,
-                    ),
-                    title = { Text("💧 Hi! $name") },
-                    actions = {
-                        IconButton(onClick = {}) {
-                            Icon(
-                                imageVector = Icons.Default.AccountCircle,
-                                contentDescription = "Edit Profile",
-                                tint = Color(0xFF2E7D32)
-                            )
-                        }
-                    }
-                )
-            }
-        ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(24.dp)
-            ) {
-                Column(
-                    modifier = Modifier.align(Alignment.TopCenter),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Text(
-                        text = "Today's water intake",
-                        style = MaterialTheme.typography.headlineMedium,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
-
-                    Spacer(Modifier.height(32.dp))
-
-                    WaterProgressChart(
-                        progress = progress,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Text(
-                        text = "280 / 2500 ml",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
-
-                    Spacer(Modifier.height(28.dp))
-
-                    Text(
-                        text = advise,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
-                }
-
-                Column(
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Button(
-                        onClick = {},
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("Record Water Intake") }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Button(
-                        onClick = {},
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("History") }
-                }
-            }
-        }
+        DashBoardContent(
+            name = "Ray",
+            progress = 0.62f,
+            drinkingCount = 1550,
+            drinkingGoals = 2500,
+            advise = "You're doing great, keep it up! 👍",
+            goToRecord = {},
+            goToHistory = {},
+            onGoProfile = {},
+            onLogout = {}
+        )
     }
 }

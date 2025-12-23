@@ -17,7 +17,7 @@ import kotlinx.coroutines.tasks.await
 import java.util.UUID
 
 enum class Gender { Male, Female }
-enum class WaterType {Warm, Ice, Hot}
+
 
 data class UiRecord(
     val amount: Int,
@@ -200,6 +200,24 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
 
                 db.collection("users").document(key).set(data).await()
 
+                // Local (Room): keep drinkingCount, only update gender
+                val local = localUserDao.getUser(key)
+                if (local != null) {
+                    localUserDao.upsertUser(
+                        local.copy(gender = gender.name)
+                    )
+                } else {
+                    // If local row missing for some reason, create it
+                    localUserDao.upsertUser(
+                        LocalUserEntity(
+                            nameKey = key,
+                            name = name,
+                            gender = gender.name,
+                            drinkingCount = 0
+                        )
+                    )
+                }
+
                 _uiState.update {
                     it.copy(
                         gender = gender,
@@ -310,18 +328,8 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun waterTypeChanged(type: String) {
-        when {
-            type == "\uD83E\uDDCA Ice" -> _uiState.value =
-                _uiState.value.copy(waterType = WaterType.Ice.toString())
-
-            type == "☕ Warm" -> _uiState.value =
-                _uiState.value.copy(waterType = WaterType.Warm.toString())
-
-            type == "\uD83D\uDD25 Hot" -> _uiState.value =
-                _uiState.value.copy(waterType = WaterType.Hot.toString())
-
-            else -> _uiState.value = _uiState.value.copy(waterType = type)
-        }
+        val normalized = type.trim()
+        _uiState.update { it.copy(waterType = normalized) }
     }
 
     fun addRecord(onError: (Throwable) -> Unit = {}) {
@@ -427,28 +435,46 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
         else return "Error"
     }
 
-    fun deleteCurrentUser(onDone: () -> Unit = {}, onError: (Throwable) -> Unit = {}) {
-        val key = _uiState.value.currentUserKey
-        if (key.isBlank()) return
+    fun saveProfile(
+        gender: Gender?,
+        goalsText: String,
+        onDone: () -> Unit,
+        onErrorMessage: (String) -> Unit
+    ) {
+        val g = gender ?: run {
+            onErrorMessage("Please select a gender")
+            return
+        }
 
-        viewModelScope.launch {
-            try {
-                // Delete all records for this user
-                val qs = db.collection("records").whereEqualTo("nameKey", key).get().await()
-                val batch = db.batch()
-                qs.documents.forEach { batch.delete(it.reference) }
-                batch.delete(db.collection("users").document(key))
-                batch.commit().await()
+        val goals = goalsText.trim().toIntOrNull() ?: 0
+        if (goals <= 0) {
+            onErrorMessage("Please enter a valid goal")
+            return
+        }
 
-                // Local delete
-                localUserDao.deleteUser(key)
-
-                // Reset UI
-                _uiState.value = UiState()
-                onDone()
-            } catch (t: Throwable) {
-                onError(t)
+        updateProfileGenderGoals(
+            gender = g,
+            goals = goals,
+            onDone = onDone,
+            onError = { t ->
+                onErrorMessage(t.message ?: "Update failed")
             }
+        )
+    }
+
+    fun logout() {
+        _uiState.update {
+            it.copy(
+                name = "",
+                gender = null,
+                drinkingGoals = 0,
+                drinkingCount = 0,
+                drinkingRecords = 0,
+                waterType = "",
+                recordList = mutableListOf(),
+                recordIds = mutableListOf(),
+                currentUserKey = ""
+            )
         }
     }
 }

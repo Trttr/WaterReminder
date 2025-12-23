@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -36,10 +37,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfilePage(
     viewModel: WaterViewModel,
@@ -53,6 +53,48 @@ fun ProfilePage(
     var isSaving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
+    ProfileScreen(
+        name = uiState.name,
+        gender = gender,
+        onGenderChange = { if (!isSaving) gender = it },
+        goalsText = goalsText,
+        onGoalsTextChange = { if (!isSaving) goalsText = it },
+        isSaving = isSaving,
+        error = error,
+        onBack = onBack,
+        onSave = {
+            error = null
+            isSaving = true
+
+            viewModel.saveProfile(
+                gender = gender,
+                goalsText = goalsText,
+                onDone = {
+                    isSaving = false
+                    onBack()
+                },
+                onErrorMessage = { msg ->
+                    isSaving = false
+                    error = msg
+                }
+            )
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProfileScreen(
+    name: String,
+    gender: Gender?,
+    onGenderChange: (Gender) -> Unit,
+    goalsText: String,
+    onGoalsTextChange: (String) -> Unit,
+    isSaving: Boolean,
+    error: String?,
+    onSave: () -> Unit,
+    onBack: () -> Unit
+) {
     val goals = goalsText.trim().toIntOrNull() ?: 0
     val canSave = (gender != null) && goals > 0 && !isSaving
 
@@ -63,9 +105,9 @@ fun ProfilePage(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.primary,
                 ),
-                title = { Text("👤 Edit Profile") },
+                title = { Text("Edit Profile") },
                 navigationIcon = {
-                    IconButton(onClick = { if (!isSaving) onBack() }) {
+                    IconButton(onClick = onBack, enabled = !isSaving) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
@@ -78,8 +120,10 @@ fun ProfilePage(
         Column(
             modifier = Modifier
                 .padding(paddingValues)
-                .padding(24.dp)
+                .padding(horizontal = 24.dp)
+                .fillMaxSize()
         ) {
+            Spacer(Modifier.height(24.dp))
             // Read-only name
             Text(
                 text = "Name",
@@ -87,7 +131,7 @@ fun ProfilePage(
             )
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
-                value = uiState.name,
+                value = name,
                 onValueChange = {},
                 enabled = false,
                 modifier = Modifier.fillMaxWidth(),
@@ -109,14 +153,16 @@ fun ProfilePage(
                 GenderCard(
                     label = "Male",
                     selected = gender == Gender.Male,
-                    onClick = { if (!isSaving) gender = Gender.Male },
-                    modifier = Modifier.weight(1f)
+                    onClick = { onGenderChange(Gender.Male) },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSaving
                 )
                 GenderCard(
                     label = "Female",
                     selected = gender == Gender.Female,
-                    onClick = { if (!isSaving) gender = Gender.Female },
-                    modifier = Modifier.weight(1f)
+                    onClick = { onGenderChange(Gender.Female) },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSaving
                 )
             }
 
@@ -129,7 +175,7 @@ fun ProfilePage(
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = goalsText,
-                onValueChange = { if (!isSaving) goalsText = it },
+                onValueChange = onGoalsTextChange,
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !isSaving,
@@ -137,46 +183,22 @@ fun ProfilePage(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
 
+            Spacer(modifier = Modifier.weight(1f))
+
             if (error != null) {
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    text = error!!,
+                    text = error,
                     color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
                 )
             }
 
             Spacer(Modifier.height(28.dp))
 
             Button(
-                onClick = {
-                    error = null
-                    isSaving = true
-                    val g = gender
-                    if (g == null) {
-                        isSaving = false
-                        error = "Please select a gender"
-                        return@Button
-                    }
-                    if (goals <= 0) {
-                        isSaving = false
-                        error = "Please enter a valid goal"
-                        return@Button
-                    }
-
-                    viewModel.updateProfileGenderGoals(
-                        gender = g,
-                        goals = goals,
-                        onDone = {
-                            isSaving = false
-                            onBack()
-                        },
-                        onError = { t ->
-                            isSaving = false
-                            error = t.message ?: "Update failed"
-                        }
-                    )
-                },
+                onClick = onSave,
                 enabled = canSave,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -194,12 +216,13 @@ fun ProfilePage(
             Spacer(Modifier.height(10.dp))
 
             OutlinedButton(
-                onClick = { if (!isSaving) onBack() },
+                onClick = onBack,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isSaving
             ) {
                 Text("Cancel")
             }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -209,10 +232,11 @@ private fun GenderCard(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     Card(
-        modifier = modifier.clickable(onClick = onClick),
+        modifier = modifier.clickable(onClick = onClick, enabled = enabled),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
             containerColor = if (selected)
@@ -232,77 +256,20 @@ private fun GenderCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
 fun PreviewProfilePage() {
     com.example.compose.AppTheme {
-        // Preview-only: simple static UI without ViewModel
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.primary,
-                    ),
-                    title = { Text("👤  Edit Profile") },
-                    navigationIcon = {
-                        IconButton(onClick = {}) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back"
-                            )
-                        }
-                    }
-                )
-            }
-        ) { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .padding(paddingValues)
-                    .padding(24.dp)
-            ) {
-                Text("Name", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = "Donald",
-                    onValueChange = {},
-                    enabled = false,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                Spacer(Modifier.height(24.dp))
-
-                Text("Gender", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    GenderCard(label = "Male", selected = true, onClick = {}, modifier = Modifier.weight(1f))
-                    GenderCard(label = "Female", selected = false, onClick = {}, modifier = Modifier.weight(1f))
-                }
-
-                Spacer(Modifier.height(24.dp))
-
-                Text("Daily drinking goal", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = "2500",
-                    onValueChange = {},
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    trailingIcon = { Text("ml") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-
-                Spacer(Modifier.height(28.dp))
-
-                Button(onClick = {}, modifier = Modifier.fillMaxWidth()) { Text("Save") }
-                Spacer(Modifier.height(10.dp))
-                OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
-            }
-        }
+        ProfileScreen(
+            name = "Donald",
+            gender = Gender.Male,
+            onGenderChange = {},
+            goalsText = "2500",
+            onGoalsTextChange = {},
+            isSaving = false,
+            error = "This is an example error",
+            onSave = {},
+            onBack = {}
+        )
     }
 }

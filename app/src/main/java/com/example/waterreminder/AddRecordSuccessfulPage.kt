@@ -2,16 +2,23 @@ package com.example.waterreminder
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -30,13 +37,38 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.compose.AppTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddRecordSuccessfulPage(
     viewModel: WaterViewModel,
     onNext: () -> Unit
 ) {
-    val addRecordSuccessfulPageUiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val latestRecord = viewModel.returnLatestRecord()
+
+    AddRecordSuccessfulPageContent(
+        name = uiState.name,
+        latestRecordAmount = latestRecord.first,
+        latestRecordType = latestRecord.second,
+        dailyCount = uiState.drinkingCount,
+        dailyGoal = uiState.drinkingGoals,
+        progress = viewModel.getPercentage(),
+        message = viewModel.returnRecordMessage(),
+        onNext = onNext
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddRecordSuccessfulPageContent(
+    name: String,
+    latestRecordAmount: Int,
+    latestRecordType: String,
+    dailyCount: Int,
+    dailyGoal: Int,
+    progress: Float,
+    message: String,
+    onNext: () -> Unit
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -44,9 +76,7 @@ fun AddRecordSuccessfulPage(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.primary,
                 ),
-                title = {
-                    Text("🎉 Successfully Added!")
-                }
+                title = { Text("🎉 Successfully Added!") }
             )
         }
     ) { innerPadding ->
@@ -54,84 +84,90 @@ fun AddRecordSuccessfulPage(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(32.dp), // Increased padding
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                text = "Nice Job, ${addRecordSuccessfulPageUiState.name}!",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
+
+            CongratulationCard(name, latestRecordAmount, latestRecordType)
 
             Spacer(Modifier.height(32.dp))
 
-            // Display the latest record in a Card
-            val latestRecord = viewModel.returnLatestRecord()
-            if (latestRecord.first > 0) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "Your latest record:",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Amount: ${latestRecord.first} ml",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            text = "Type: ${latestRecord.second}",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(32.dp))
-
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = "Today's Progress",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                ProgressBar(progress = viewModel.getPercentage())
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "${addRecordSuccessfulPageUiState.drinkingCount}ml / ${addRecordSuccessfulPageUiState.drinkingGoals}ml",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.End)
-                )
-            }
+            ProgressSection(dailyCount, dailyGoal, progress)
 
             Spacer(Modifier.height(32.dp))
 
             Text(
-                text = viewModel.returnRecordMessage(),
+                text = message,
                 style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(Modifier.weight(1f))
 
             Button(
                 onClick = onNext,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
                 Text("Finish", style = MaterialTheme.typography.titleMedium)
             }
         }
+    }
+}
+
+@Composable
+private fun CongratulationCard(name: String, amount: Int, type: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Nice Job, $name!",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            if (amount > 0) {
+                HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                Text(
+                    text = "Your latest record:",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.WaterDrop, contentDescription = "Amount")
+                    Spacer(Modifier.width(8.dp))
+                    Text("$amount ml", style = MaterialTheme.typography.bodyLarge)
+                    Spacer(Modifier.width(16.dp))
+                    WaterTypeIcon(type)
+                    Spacer(Modifier.width(8.dp))
+                    Text(type, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressSection(count: Int, goal: Int, progress: Float) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Today's Progress",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        ProgressBar(progress = progress)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "${count}ml / ${goal}ml",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.align(Alignment.End)
+        )
     }
 }
 
@@ -149,71 +185,30 @@ fun ProgressBar(progress: Float) {
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WaterTypeIcon(waterType: String) {
+    val icon = when (waterType) {
+        "Ice" -> "🧊"
+        "Warm" -> "☕"
+        "Hot" -> "🔥"
+        else -> "💧"
+    }
+    Text(text = icon, style = MaterialTheme.typography.headlineSmall)
+}
+
 @Preview(showBackground = true)
 @Composable
 fun PreviewAddRecordSuccessfulPage() {
     AppTheme {
-        // ⚠️ Preview 中不要使用 ViewModel（会触发 Render Issues）
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("🎉 Successfully Added!") }
-                )
-            }
-        ) { innerPadding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    text = "Nice Job, Donald!",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Spacer(Modifier.height(32.dp))
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("Your latest record:")
-                        Text("Amount: 500 ml")
-                        Text("Type: ☕ Warm")
-                    }
-                }
-
-                Spacer(Modifier.height(32.dp))
-
-                Text("Today's Progress")
-                ProgressBar(progress = 0.6f)
-                Spacer(Modifier.height(8.dp))
-                Text("1500ml / 2800ml")
-
-                Spacer(Modifier.height(32.dp))
-
-                Text(
-                    text = "Great job! Keep drinking water 💧",
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(Modifier.weight(1f))
-
-                Button(
-                    onClick = {},
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Finish")
-                }
-            }
-        }
+        AddRecordSuccessfulPageContent(
+            name = "Ray",
+            latestRecordAmount = 500,
+            latestRecordType = "Warm",
+            dailyCount = 1500,
+            dailyGoal = 3700,
+            progress = 0.4f,
+            message = "Great start! Every drop counts. 💧",
+            onNext = {}
+        )
     }
 }

@@ -41,9 +41,10 @@ private fun AppNav() {
             WelcomePage(
                 viewModel = viewModel,
                 onNext = {
-                    navController.navigate(NavRoutes.Dashboard) {
-                        popUpTo(NavRoutes.Login) { inclusive = true }
-                    }
+                    navController.navigate(NavRoutes.Dashboard)
+                },
+                onBack = {
+                    navController.popBackStack()
                 }
             )
         }
@@ -51,14 +52,14 @@ private fun AppNav() {
         composable(NavRoutes.Dashboard) {
             DashBoard(
                 viewModel = viewModel,
-                goToRecord = {
-                    navController.navigate(NavRoutes.AddRecord)
-                },
-                goToHistory = {
-                    navController.navigate(NavRoutes.History)
-                },
-                onGoProfile = {
-                    navController.navigate(NavRoutes.Profile)
+                goToRecord = { navController.navigate(NavRoutes.AddRecord) },
+                goToHistory = { navController.navigate(NavRoutes.History) },
+                onGoProfile = { navController.navigate(NavRoutes.Profile) },
+                onLogout = {
+                    viewModel.logout()
+                    navController.navigate(NavRoutes.Login) {
+                        popUpTo(0)
+                    }
                 }
             )
         }

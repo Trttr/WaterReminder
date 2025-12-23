@@ -1,12 +1,34 @@
 package com.example.waterreminder
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.example.compose.AppTheme
 
 @Composable
@@ -15,97 +37,118 @@ fun LoginPage(
     onGoHome: () -> Unit,
     onGoWelcome: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
     var nameInput by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
     AppTheme {
-        Scaffold { padding ->
-            Column(
-                modifier = Modifier
-                    .padding(padding)
-                    .padding(24.dp)
-                    .fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-
-                Text(
-                    text = "💧 WaterReminder",
-                    style = MaterialTheme.typography.headlineMedium
-                )
-
-                Spacer(Modifier.height(32.dp))
-
-                OutlinedTextField(
-                    value = nameInput,
-                    onValueChange = { nameInput = it },
-                    label = { Text("Username") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading,
-                )
-
-                Spacer(Modifier.height(24.dp))
-
-                Button(
-                    onClick = {
-                        errorMessage = null
-                        isLoading = true
-                        viewModel.loginByName(
-                            nameInput = nameInput,
-                            onExistingUser = {
-                                isLoading = false
-                                onGoHome()
-                            },
-                            onNewUser = {
-                                isLoading = false
-                                errorMessage = "User not found"
-                            },
-                            onError = { e ->
-                                isLoading = false
-                                errorMessage = "Login failed: ${e.message}"
-                            }
-                        )
-                    },
-                    enabled = nameInput.isNotBlank() && !isLoading,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(20.dp),
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    } else {
-                        Text("Login")
-                    }
-                }
-
-                if (isLoading) {
-                    Spacer(Modifier.height(16.dp))
-                    CircularProgressIndicator()
-                }
-
-                if (errorMessage != null) {
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = errorMessage!!,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
+        Scaffold {
+            LoginPageContent(
+                padding = it,
+                nameInput = nameInput,
+                onNameChange = { nameInput = it },
+                errorMessage = errorMessage,
+                isLoading = isLoading,
+                onLoginClick = {
+                    errorMessage = null
+                    isLoading = true
+                    viewModel.loginByName(
+                        nameInput = nameInput,
+                        onExistingUser = {
+                            isLoading = false
+                            onGoHome()
+                        },
+                        onNewUser = {
+                            isLoading = false
+                            errorMessage = "User not found. Please register."
+                        },
+                        onError = { e ->
+                            isLoading = false
+                            errorMessage = "Login failed: ${e.message}"
+                        }
                     )
-                }
+                },
+                onGoWelcome = onGoWelcome
+            )
+        }
+    }
+}
 
-                Spacer(Modifier.height(24.dp))
+@Composable
+private fun LoginPageContent(
+    padding: PaddingValues,
+    nameInput: String,
+    onNameChange: (String) -> Unit,
+    errorMessage: String?,
+    isLoading: Boolean,
+    onLoginClick: () -> Unit,
+    onGoWelcome: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .padding(padding)
+            .padding(32.dp)
+            .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.height(64.dp))
 
-                OutlinedButton(
-                    onClick = { onGoWelcome() },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
-                ) {
-                    Text("Register")
+        Text(
+            text = "💧 WaterReminder",
+            style = MaterialTheme.typography.headlineLarge
+        )
+        Text(
+            text = "Sign in to continue",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(Modifier.weight(1f))
+
+        OutlinedTextField(
+            value = nameInput,
+            onValueChange = onNameChange,
+            label = { Text("Username") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading,
+            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+            isError = errorMessage != null,
+            supportingText = {
+                if (errorMessage != null) {
+                    Text(errorMessage)
                 }
+            }
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        Button(
+            onClick = onLoginClick,
+            enabled = nameInput.isNotBlank() && !isLoading,
+            modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    strokeWidth = 3.dp,
+                    modifier = Modifier.size(24.dp),
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            } else {
+                Text("Login", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+
+        Spacer(Modifier.weight(1f))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Don't have an account?")
+            TextButton(onClick = onGoWelcome, enabled = !isLoading) {
+                Text("Register")
             }
         }
     }
@@ -115,79 +158,52 @@ fun LoginPage(
 @Composable
 fun PreviewLoginPage() {
     AppTheme {
-        // Preview 里不使用 ViewModel（避免数据库/网络/协程）
-        var nameInput by remember { mutableStateOf("Donald") }
-        var errorMessage by remember { mutableStateOf<String?>(null) }
-        var isLoading by remember { mutableStateOf(true) }
+        Scaffold {
+            LoginPageContent(
+                padding = it,
+                nameInput = "Donald",
+                onNameChange = {},
+                errorMessage = null,
+                isLoading = false,
+                onLoginClick = {},
+                onGoWelcome = {}
+            )
+        }
+    }
+}
 
-        Scaffold { padding ->
-            Column(
-                modifier = Modifier
-                    .padding(padding)
-                    .padding(24.dp)
-                    .fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+@Preview(showBackground = true, name = "Login Page - Loading")
+@Composable
+fun PreviewLoginPageLoading() {
+    AppTheme {
+        Scaffold {
+            LoginPageContent(
+                padding = it,
+                nameInput = "Donald",
+                onNameChange = {},
+                errorMessage = null,
+                isLoading = true,
+                onLoginClick = {},
+                onGoWelcome = {}
+            )
+        }
+    }
+}
 
-                Text(
-                    text = "💧 WaterReminder",
-                    style = MaterialTheme.typography.headlineMedium
-                )
-
-                Spacer(Modifier.height(32.dp))
-
-                OutlinedTextField(
-                    value = nameInput,
-                    onValueChange = { nameInput = it },
-                    label = { Text("Username") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading,
-                )
-
-                Spacer(Modifier.height(24.dp))
-
-                Button(
-                    onClick = { isLoading = true },
-                    enabled = nameInput.isNotBlank() && !isLoading,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(20.dp),
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    } else {
-                        Text("Login")
-                    }
-                }
-
-                if (isLoading) {
-                    Spacer(Modifier.height(16.dp))
-                    CircularProgressIndicator()
-                }
-
-                if (errorMessage != null) {
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = errorMessage!!,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-
-                Spacer(Modifier.height(24.dp))
-
-                OutlinedButton(
-                    onClick = {},
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
-                ) {
-                    Text("Register")
-                }
-            }
+@Preview(showBackground = true, name = "Login Page - Error")
+@Composable
+fun PreviewLoginPageError() {
+    AppTheme {
+        Scaffold {
+            LoginPageContent(
+                padding = it,
+                nameInput = "Donald",
+                onNameChange = {},
+                errorMessage = "This user does not exist.",
+                isLoading = false,
+                onLoginClick = {},
+                onGoWelcome = {}
+            )
         }
     }
 }
