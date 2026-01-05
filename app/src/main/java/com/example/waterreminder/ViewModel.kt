@@ -89,7 +89,7 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
 
                 val genderEnum = cloudGender?.let { runCatching { Gender.valueOf(it) }.getOrNull() }
 
-                // Ensure local row exists (drinkingCount local-only in your design)
+                // Ensure local row exists (drinkingCount local-only)
                 val local = localUserDao.getUser(key)
                 if (local == null) {
                     localUserDao.upsertUser(
@@ -342,7 +342,7 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
         val amount = currentState.drinkingRecords
         val wt = currentState.waterType
         val ts = System.currentTimeMillis()
-        val recordId = UUID.randomUUID().toString()
+        val recordId = UUID.randomUUID().toString()  //
 
         viewModelScope.launch {
             try {
@@ -353,10 +353,10 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
                     "waterType" to wt,
                     "timestamp" to ts
                 )
-                db.collection("records").document(recordId).set(data).await()
+                db.collection("records").document(recordId).set(data).await() //
 
                 // 2) Local: update count (+=)
-                localUserDao.increaseCount(key, amount)
+                localUserDao.increaseCount(key, amount) //
                 val local = localUserDao.getUser(key)
 
                 // 3) UI: append record + reset inputs
@@ -396,17 +396,23 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
                 // 1) Cloud delete
                 db.collection("records").document(recordId).delete().await()
 
-                // 2) Local count -=
+                // 2) Local count -= amount
                 localUserDao.decreaseCount(key, amount)
-                val local = localUserDao.getUser(key)
+                var local = localUserDao.getUser(key)
 
-                // 3) UI remove
+                // 3) If negative, fix to 0
+                if (local != null && local.drinkingCount < 0) {
+                    localUserDao.setCount(key, 0)
+                    local = local.copy(drinkingCount = 0)
+                }
+
+                // 4) UI remove
                 val newList = currentState.recordList.toMutableList().apply { removeAt(index) }
                 val newIds = currentState.recordIds.toMutableList().apply { removeAt(index) }
 
                 _uiState.update {
                     it.copy(
-                        drinkingCount = local?.drinkingCount ?: (it.drinkingCount - amount),
+                        drinkingCount = local?.drinkingCount ?: 0,
                         recordList = newList,
                         recordIds = newIds
                     )
@@ -416,6 +422,7 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
 
     fun returnLatestRecord(): Pair<Int, String> {
         val currentState = _uiState.value

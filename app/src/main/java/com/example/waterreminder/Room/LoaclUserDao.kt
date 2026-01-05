@@ -22,4 +22,8 @@ interface LocalUserDao {
 
     @Query("DELETE FROM local_user WHERE nameKey = :nameKey")
     suspend fun deleteUser(nameKey: String)
+
+    @Query("UPDATE local_user SET drinkingCount = :count WHERE nameKey = :key")
+    suspend fun setCount(key: String, count: Int)
+
 }
