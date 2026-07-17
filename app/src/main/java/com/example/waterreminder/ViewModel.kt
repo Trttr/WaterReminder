@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.waterreminder.Room.AppDatabase
+import com.example.waterreminder.Room.LocalRecordEntity
 import com.example.waterreminder.Room.LocalUserEntity
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,12 +49,40 @@ data class UiState(
 class WaterViewModel(app: Application) : AndroidViewModel(app) {
 
     private val localUserDao = AppDatabase.getInstance(app).localUserDao()
+    private val localRecordDao = AppDatabase.getInstance(app).localRecordDao()
     private val db = FirebaseFirestore.getInstance()
 
     private fun nameKeyOf(name: String) = name.trim().lowercase()
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    /**
+     * Project the local mirror (Room) into UiState.
+     * recordList / recordIds come from the local `local_record` table, and
+     * drinkingCount is DERIVED via SUM(amount) — never stored, so it always
+     * matches the records (fixes cross-device / cross-day inconsistencies).
+     */
+    private suspend fun refreshFromLocal(key: String) {
+        val records = localRecordDao.getRecords(key)
+        // drinkingCount = sum of TODAY's records only -> auto-resets each day
+        val total = localRecordDao.getTotalAmount(key, startOfTodayMillis())
+        val uiList = records.map { UiRecord(it.amount, it.waterType, it.timestamp) }.toMutableList()
+        val ids = records.map { it.recordId }.toMutableList()
+        _uiState.update {
+            it.copy(recordList = uiList, recordIds = ids, drinkingCount = total)
+        }
+    }
+
+    /** Local midnight (00:00) of the current day, in epoch millis. */
+    private fun startOfTodayMillis(): Long {
+        val cal = java.util.Calendar.getInstance()
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        cal.set(java.util.Calendar.MINUTE, 0)
+        cal.set(java.util.Calendar.SECOND, 0)
+        cal.set(java.util.Calendar.MILLISECOND, 0)
+        return cal.timeInMillis
+    }
 
     /**
      * Login by name only.
@@ -89,31 +118,29 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
 
                 val genderEnum = cloudGender?.let { runCatching { Gender.valueOf(it) }.getOrNull() }
 
-                // Ensure local row exists (drinkingCount local-only)
+                // Ensure a local profile row exists (mirror of cloud users/{key})
                 val local = localUserDao.getUser(key)
                 if (local == null) {
                     localUserDao.upsertUser(
                         LocalUserEntity(
                             nameKey = key,
                             name = cloudName,
-                            gender = (genderEnum ?: Gender.Male).name,
-                            drinkingCount = 0
+                            gender = (genderEnum ?: Gender.Male).name
                         )
                     )
                 }
-                val local2 = localUserDao.getUser(key)
 
                 _uiState.update {
                     it.copy(
                         name = cloudName,
                         gender = genderEnum,
                         drinkingGoals = cloudGoals,
-                        drinkingCount = local2?.drinkingCount ?: 0,
+                        drinkingCount = 0, // recomputed from records below
                         currentUserKey = key
                     )
                 }
 
-                // Load records from cloud into UI
+                // Mirror records from cloud into Room, then derive count from them
                 loadRecordsFromCloud()
 
                 onExistingUser()
@@ -144,13 +171,12 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
                 )
                 db.collection("users").document(key).set(data).await()
 
-                // Local: local_user row (count starts at 0)
+                // Local: local_user profile mirror (no records yet -> count is 0)
                 localUserDao.upsertUser(
                     LocalUserEntity(
                         nameKey = key,
                         name = cleanName,
-                        gender = gender.name,
-                        drinkingCount = 0
+                        gender = gender.name
                     )
                 )
 
@@ -200,7 +226,7 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
 
                 db.collection("users").document(key).set(data).await()
 
-                // Local (Room): keep drinkingCount, only update gender
+                // Local (Room): update the profile mirror's gender
                 val local = localUserDao.getUser(key)
                 if (local != null) {
                     localUserDao.upsertUser(
@@ -212,8 +238,7 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
                         LocalUserEntity(
                             nameKey = key,
                             name = name,
-                            gender = gender.name,
-                            drinkingCount = 0
+                            gender = gender.name
                         )
                     )
                 }
@@ -244,20 +269,23 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
                     .get()
                     .await()
 
-                val sortedDocs = qs.documents.sortedBy { it.getLong("timestamp") ?: 0L }
-
-                val pairs = mutableListOf<UiRecord>()
-                val ids = mutableListOf<String>()
-
-                for (d in sortedDocs) {
-                    val amount = (d.getLong("drinkingRecords") ?: 0L).toInt()
-                    val wt = d.getString("waterType") ?: ""
-                    val ts = d.getLong("timestamp") ?: 0L
-                    pairs.add(UiRecord(amount = amount, waterType = wt, timestamp = ts))
-                    ids.add(d.id)
+                // Map cloud docs -> local mirror entities
+                val entities = qs.documents.map { d ->
+                    LocalRecordEntity(
+                        recordId = d.id,
+                        nameKey = key,
+                        amount = (d.getLong("drinkingRecords") ?: 0L).toInt(),
+                        waterType = d.getString("waterType") ?: "",
+                        timestamp = d.getLong("timestamp") ?: 0L
+                    )
                 }
 
-                _uiState.update { it.copy(recordList = pairs, recordIds = ids) }
+                // Cloud is the source of truth: replace this user's local mirror
+                localRecordDao.clearRecordsFor(key)
+                localRecordDao.upsertRecords(entities)
+
+                // Project mirror -> UI (drinkingCount derived via SUM)
+                refreshFromLocal(key)
             } catch (t: Throwable) {
                 onError(t)
             }
@@ -346,35 +374,31 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
 
         viewModelScope.launch {
             try {
-                // 1) Cloud: insert record
+                // 1) Cloud (source of truth): insert record
                 val data = hashMapOf(
                     "nameKey" to key,
                     "drinkingRecords" to amount,
                     "waterType" to wt,
                     "timestamp" to ts
                 )
-                db.collection("records").document(recordId).set(data).await() //
+                db.collection("records").document(recordId).set(data).await()
 
-                // 2) Local: update count (+=)
-                localUserDao.increaseCount(key, amount) //
-                val local = localUserDao.getUser(key)
-
-                // 3) UI: append record + reset inputs
-                val newRecordList = currentState.recordList.toMutableList().apply {
-                    add(UiRecord(amount = amount, waterType = wt, timestamp = ts))
-                }
-                val newIds = currentState.recordIds.toMutableList().apply {
-                    add(recordId)
-                }
-
-                _uiState.value = currentState.copy(
-                    drinkingCount = local?.drinkingCount ?: (currentState.drinkingCount + amount),
-                    recordList = newRecordList,
-                    recordIds = newIds,
-                    drinkingRecords = 0,
-                    waterType = "",
-                    currentUserKey = key
+                // 2) Local mirror: insert the same record
+                localRecordDao.upsertRecord(
+                    LocalRecordEntity(
+                        recordId = recordId,
+                        nameKey = key,
+                        amount = amount,
+                        waterType = wt,
+                        timestamp = ts
+                    )
                 )
+
+                // 3) Reset inputs, then project mirror -> UI (count derived via SUM)
+                _uiState.update {
+                    it.copy(drinkingRecords = 0, waterType = "", currentUserKey = key)
+                }
+                refreshFromLocal(key)
             } catch (t: Throwable) {
                 onError(t)
             }
@@ -388,35 +412,18 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
         if (index !in currentState.recordList.indices) return
         if (index !in currentState.recordIds.indices) return
 
-        val amount = currentState.recordList[index].amount
         val recordId = currentState.recordIds[index]
 
         viewModelScope.launch {
             try {
-                // 1) Cloud delete
+                // 1) Cloud (source of truth): delete
                 db.collection("records").document(recordId).delete().await()
 
-                // 2) Local count -= amount
-                localUserDao.decreaseCount(key, amount)
-                var local = localUserDao.getUser(key)
+                // 2) Local mirror: delete the same record
+                localRecordDao.deleteRecord(recordId)
 
-                // 3) If negative, fix to 0
-                if (local != null && local.drinkingCount < 0) {
-                    localUserDao.setCount(key, 0)
-                    local = local.copy(drinkingCount = 0)
-                }
-
-                // 4) UI remove
-                val newList = currentState.recordList.toMutableList().apply { removeAt(index) }
-                val newIds = currentState.recordIds.toMutableList().apply { removeAt(index) }
-
-                _uiState.update {
-                    it.copy(
-                        drinkingCount = local?.drinkingCount ?: 0,
-                        recordList = newList,
-                        recordIds = newIds
-                    )
-                }
+                // 3) Project mirror -> UI (count re-derived via SUM, can't go negative)
+                refreshFromLocal(key)
             } catch (t: Throwable) {
                 onError(t)
             }

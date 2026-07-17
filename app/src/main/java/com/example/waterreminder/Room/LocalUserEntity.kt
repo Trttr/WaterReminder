@@ -8,6 +8,5 @@ data class LocalUserEntity(
     @PrimaryKey
     val nameKey: String,
     val name: String,
-    val gender: String,
-    val drinkingCount: Int
+    val gender: String
 )

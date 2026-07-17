@@ -14,16 +14,7 @@ interface LocalUserDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertUser(user: LocalUserEntity)
 
-    @Query("UPDATE local_user SET drinkingCount = drinkingCount + :amount WHERE nameKey = :nameKey")
-    suspend fun increaseCount(nameKey: String, amount: Int)
-
-    @Query("UPDATE local_user SET drinkingCount = drinkingCount - :amount WHERE nameKey = :nameKey")
-    suspend fun decreaseCount(nameKey: String, amount: Int)
-
     @Query("DELETE FROM local_user WHERE nameKey = :nameKey")
     suspend fun deleteUser(nameKey: String)
-
-    @Query("UPDATE local_user SET drinkingCount = :count WHERE nameKey = :key")
-    suspend fun setCount(key: String, count: Int)
 
 }
