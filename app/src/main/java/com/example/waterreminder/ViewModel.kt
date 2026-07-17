@@ -374,16 +374,8 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
 
         viewModelScope.launch {
             try {
-                // 1) Cloud (source of truth): insert record
-                val data = hashMapOf(
-                    "nameKey" to key,
-                    "drinkingRecords" to amount,
-                    "waterType" to wt,
-                    "timestamp" to ts
-                )
-                db.collection("records").document(recordId).set(data).await()
-
-                // 2) Local mirror: insert the same record
+                // 1) Local mirror FIRST (optimistic update): UI responds instantly,
+                //    works offline. Room is the read path, so this drives the screen.
                 localRecordDao.upsertRecord(
                     LocalRecordEntity(
                         recordId = recordId,
@@ -393,12 +385,22 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
                         timestamp = ts
                     )
                 )
-
-                // 3) Reset inputs, then project mirror -> UI (count derived via SUM)
                 _uiState.update {
                     it.copy(drinkingRecords = 0, waterType = "", currentUserKey = key)
                 }
                 refreshFromLocal(key)
+
+                // 2) Cloud (source of truth): fire the write WITHOUT awaiting the
+                //    server. Firestore persists it to an offline queue and auto-syncs
+                //    when back online, so we don't block the UI on connectivity.
+                val data = hashMapOf(
+                    "nameKey" to key,
+                    "drinkingRecords" to amount,
+                    "waterType" to wt,
+                    "timestamp" to ts
+                )
+                db.collection("records").document(recordId).set(data)
+                    .addOnFailureListener { onError(it) }
             } catch (t: Throwable) {
                 onError(t)
             }
@@ -416,14 +418,14 @@ class WaterViewModel(app: Application) : AndroidViewModel(app) {
 
         viewModelScope.launch {
             try {
-                // 1) Cloud (source of truth): delete
-                db.collection("records").document(recordId).delete().await()
-
-                // 2) Local mirror: delete the same record
+                // 1) Local mirror FIRST (optimistic): UI updates instantly, offline-safe
                 localRecordDao.deleteRecord(recordId)
-
-                // 3) Project mirror -> UI (count re-derived via SUM, can't go negative)
                 refreshFromLocal(key)
+
+                // 2) Cloud (source of truth): fire the delete without awaiting the
+                //    server. Firestore queues it offline and auto-syncs when online.
+                db.collection("records").document(recordId).delete()
+                    .addOnFailureListener { onError(it) }
             } catch (t: Throwable) {
                 onError(t)
             }
